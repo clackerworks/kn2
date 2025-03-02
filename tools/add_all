@@ -1,0 +1,3 @@
+#!/bin/ape/sh
+
+du -a | awk -F '[.]/' '{print $2}' | sed '/^$/d' | sed '/^[.]kn2/d' | sed 's/^/kn2 add \''/' | sed 's/$/&\''/' | sort

@@ -1,0 +1,23 @@
+#!/bin/ape/sh
+
+OIFS="$IFS"
+IFS=$'\n'
+## zfiles=`du -a .kn2/$1.v | grep '\.z' | sed "s/.kn2\/$1.v\///" | awk '{print $2}'`
+zfiles=`du -a .kn2/$1.v | grep '\.z\+$' | awk -F '[.]v/' '{print $2}'`
+for i in $zfiles
+do
+        tar xzvf .kn2/$1.v/"$i" 
+        echo tar xzvf .kn2/$1.v/"$i" 
+done
+
+## pfiles=`du -a .kn2/$1.v | grep '\.p' | sed "s/.kn2\/$1.v\///" | awk '{print $2}'`
+pfiles=`du -a .kn2/$1.v | grep '\.p\+$' | awk -F '[.]v/' '{ print $2 }'`
+for i in $pfiles
+do
+	f=`echo "$i" | sed 's/\.[^.]*$//'`
+        echo updating : "$f" 
+        cat .kn2/$1.v/"$i" | ed "$f" 
+done
+
+IFS="$OIFS"
+

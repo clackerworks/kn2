@@ -1,0 +1,21 @@
+#!/bin/ape/sh
+
+lib=/usr/glenda/lib/kn2
+if test -d $lib
+then 
+	cp commit $lib
+	cp restore $lib
+	cp commit.awk $lib
+	cp restore.awk $lib
+else
+	mkdir $lib
+	cp commit $lib
+	cp restore $lib
+	cp commit.awk $lib
+	cp restore.awk $lib
+fi
+cp kn2 /usr/glenda/bin/rc
+mkdir $lib/tools
+dircp tools $lib/tools
+chmod +x $lib/tools/*
+chmod +x $lib/*

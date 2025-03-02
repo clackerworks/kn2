@@ -1,0 +1,190 @@
+#!/bin/ape/sh
+
+kn2lib=$home/lib/kn2
+db_dir=.kn2
+
+if test $# -lt 1
+then
+        echo usage: kn [command]
+        exit 0
+fi
+
+if test ! -d .kn2
+then
+	echo error .kn2 not found
+	exit 1
+fi
+## max_level=5
+## current_dir=`pwd`
+## dir=`echo $current_dir | tr '/' ' '`
+## dir_end=`basename $current_dir`
+## 
+## for i in $dir
+## do
+##         if test -e .kn2
+##         then
+##                 break
+##         fi
+##         cd ../
+## done
+## 
+## if test $i = $dir_end
+## then
+##         echo error: .kn was not found
+##         exit 1
+## fi
+rm -f /tmp/kn2.log
+
+if test $1 = "add"
+then
+## 	echo adding "$2"
+	if test ! -e "$2"
+	then
+		echo error: $2 not found
+		exit 1
+	fi
+	if test -e .kn2/b/"$2"
+	then
+		echo warning file/directory already tracked
+		exit 1
+	fi
+## 	sym=`file --mime "$2" | awk -F ":" '{ print $2 }' | awk '{ print $1}'`
+## 	if test $sym = "inode/symlink;"
+## 	then
+## 		echo error: symlinks are not supported
+## 		exit 1
+## 	fi
+
+        if test -d "$2"
+	then
+		mkdir $db_dir/0/"$2"
+		mkdir $db_dir/b/"$2"
+		echo d c "$2" >> $db_dir/filelist.x
+	else
+## 		type=`file "$2" | awk -F ":" '{ print $2 }' | awk '{ print $1 }'`
+## 		case $type in
+##                 "data"|"encrypted"|"gzip"|"ELF"|"JPEG"|"PNG"|"PGP"|"PDF"|"MSVC"|"Non-ISO"|"Composite"|"Little-endian"|"D64"|"Atari"|"dBase"|"TrueType"|"PGP\011Secret"|"Microsoft")
+## 			touch $db_dir/0/"$2"
+## 			touch $db_dir/b/"$2"
+## 			echo b c "$2" >> $db_dir/filelist
+## 		;;
+##                 "ASCII"|"POSIX"|"awk"|"Plan"|"HTML"|"C"|"makefile"|"assembler"|"C++"|"Objective-C"|"LaTeX"|"XML"|"Python"|"BSD"|"troff"|"UTF-8")
+## 			touch $db_dir/0/"$2"
+## 			touch $db_dir/b/"$2"
+## 			echo f c "$2" >> $db_dir/filelist
+## 		;;
+## 		*)
+## 			echo error unknown file type 
+## 			echo -n '>> '
+## 			file "$2"
+## 			exit 1
+## 		;;
+## 		esac
+                size=`du "$2" | awk '{ print $1 }'`
+		if test $size -eq 0
+		then
+			echo warning: zero byte file ignored "$2"
+			exit 1
+		fi
+                type=`diff "$2" /dev/null | tail -n 1 | awk  '{ print $1 }'`
+                case $type in
+                "binary")
+                        touch $db_dir/0/"$2"
+                        touch $db_dir/b/"$2"
+                        echo b c "$2" >> $db_dir/filelist.x
+                ;;
+                *)
+                        touch $db_dir/0/"$2"
+                        touch $db_dir/b/"$2"
+                        echo f c "$2" >> $db_dir/filelist.x
+                ;;
+                esac
+	fi
+fi
+
+if test $1 = "rm"
+then
+	if test -d "$2"
+	then
+		rmdir $db_dir/0/"$2"
+		rmdir $db_dir/b/"$2"
+		echo d d "$2" >> $db_dir/filelist.x
+	else
+		rm $db_dir/0/"$2"
+		rm $db_dir/b/"$2"
+		echo f d "$2" >> $db_dir/filelist.x
+	fi
+fi
+
+if test $1 = "restore"
+then
+	cat .kn2/filelist | awk -v lib=$kn2lib -v sum=$2 -f $kn2lib/restore.awk >> /tmp/kn2.log
+fi
+
+
+if test $1 = 'diff'
+then
+        diff -r .kn2/b . | sed 's/Only in .: .kn2//' | sed '/^$/d'
+fi
+
+if test $1 = "snap"
+then
+	diff .kn2 . > /tmp/kn2.diff
+	sum=`sha1sum /tmp/kn2.diff | awk '{print $1}'`
+	rm -f /tmp/kn2.msg
+	ed /tmp/kn2.msg
+	if test -s /tmp/kn2.msg
+	then
+		tar czvf /tmp/$sum.tgz .
+		cp /tmp/$sum.tgz .kn2
+		echo @@ START snap >> $db_dir/log
+		echo $sum >> $db_dir/log
+		cat /tmp/kn2.msg >> $db_dir/log
+		echo @@ END >> $db_dir/log
+	else
+		echo commit canceled
+	fi
+fi
+
+if test $1 = "commit"
+then
+	diff .kn2 . > /tmp/kn2.diff
+	sum=`sha1sum /tmp/kn2.diff | awk '{print $1}'`
+	if test ! -s $db_dir/filelist -a ! -s $db_dir/filelist.x
+	then
+		echo error no files are bieng tracked
+		exit 1
+	fi
+	rm -f /tmp/kn2.msg
+	ed /tmp/kn2.msg
+	if test -s /tmp/kn2.msg
+	then
+		echo @@ $sum >> $db_dir/filelist
+
+		mkdir $db_dir/$sum.v
+		dircp $db_dir/0 $db_dir/$sum.v
+		if test -s $db_dir/filelist
+		then
+		cat $db_dir/filelist | awk '/^@@/ { next }; { print }' \
+			| awk -v op="edit" -v lib=$kn2lib -v xsum=$sum -f $kn2lib/commit.awk
+		fi
+		if test -s $db_dir/filelist.x
+		then
+		cat $db_dir/filelist.x | awk '/^@@/ { next }; { print }' \
+			| awk -v op="add" -v lib=$kn2lib -v xsum=$sum -f $kn2lib/commit.awk
+		rm $db_dir/filelist.x
+		fi
+		echo @@ START commit >> $db_dir/log
+		echo $sum >> $db_dir/log
+		cat /tmp/kn2.msg >> $db_dir/log
+		echo @@ END >> $db_dir/log
+
+	else
+		echo commit canceled
+	fi
+fi
+
+if test -s $kn2lib/tools/$1
+then
+	$kn2lib/tools/$1 $2
+fi

@@ -1,0 +1,4 @@
+#!/bin/ape/sh
+
+diff .kn2/filelist $1/.kn2/filelist
+

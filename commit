@@ -1,0 +1,31 @@
+#!/bin/ape/sh
+
+if test $2 = "f"
+then
+	if test -s .kn2/b/"$4" -o $1 = "add"
+	then
+		diff -e .kn2/b/"$4" "$4" > /tmp/kn2.p
+		if test -s /tmp/kn2.p
+		then
+			cp /tmp/kn2.p .kn2/$3/"$4".p
+			echo w >> .kn2/$3/"$4".p
+			cp "$4" .kn2/b/"$4"
+			echo "f c $4" >> .kn2/filelist
+		fi
+	fi
+fi
+
+if test $2 = "b"
+then
+        if test -s .kn2/b/"$4" -o $1 = "add"
+	then
+		diff "$4" .kn2/b/"$4" > /tmp/kn2_diff
+		if test -s /tmp/kn2_diff
+		then
+	                tar czvf .kn2/$3/"$4".z "$4" >> /tmp/kn2.log
+			cp "$4" .kn2/b/"$4"
+			echo "b c $4" >> .kn2/filelist
+		fi
+	fi
+fi
+
